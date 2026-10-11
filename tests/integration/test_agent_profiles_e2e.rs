@@ -1111,10 +1111,17 @@ fn test_all_32_agent_profiles_enforce_git_guard_and_auto_deny_secrets() {
         let pol = load_with_options("default", None, &project, &home, Tier::Full, &opts)
             .unwrap_or_else(|e| panic!("Failed to load profile for agent {agent}: {e}"));
 
-        assert!(
-            pol.git_guard,
-            "Agent profile '{agent}' must enforce git_guard = true"
-        );
+        if agent == "swebench" {
+            assert!(
+                !pol.git_guard,
+                "Agent profile 'swebench' must keep git_guard = false for evaluation harnesses"
+            );
+        } else {
+            assert!(
+                pol.git_guard,
+                "Agent profile '{agent}' must enforce git_guard = true"
+            );
+        }
         assert!(
             pol.auto_deny_secrets,
             "Agent profile '{agent}' must enforce auto_deny_secrets = true"

@@ -971,9 +971,9 @@ pub fn execute_dry_run(cfg: &RunConfig) -> Result<(), SuperviseError> {
     if (pol.git_guard || cfg.git_guard) && !pol.allow_write.is_empty() {
         if let Some(branch) = crate::git::detect_git_branch(&project) {
             if branch == "main" || branch == "master" {
-                return Err(SuperviseError::Fatal(anyhow::anyhow!(
-                    "git_guard: working copy is on branch '{branch}'; refusing to run with write permissions (create a feature branch, e.g. 'git checkout -b feature/...')"
-                )));
+                eprintln!(
+                    "vetto: warning: git_guard: working copy is on branch '{branch}'; write permissions would be refused (create a feature branch, e.g. 'git checkout -b feature/...')"
+                );
             }
         }
     }

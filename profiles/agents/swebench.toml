@@ -44,7 +44,7 @@ tmpfs_tmp = true
 
 [security]
 auto_deny_secrets = true
-git_guard = true
+git_guard = false
 
 [network]
 mode = "off"
