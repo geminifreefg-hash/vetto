@@ -551,17 +551,16 @@ fn test_tui_10_fps_and_decstbm_scroll_isolation() {
 
 #[test]
 fn test_update_and_upgrade_cli() {
-    let output_update = vetto_cmd()
-        .arg("update")
-        .output()
-        .expect("vetto update");
+    let output_update = vetto_cmd().arg("update").output().expect("vetto update");
     assert!(output_update.status.success());
     let stdout_update = String::from_utf8_lossy(&output_update.stdout);
     assert!(stdout_update.contains(env!("CARGO_PKG_VERSION")));
     assert!(stdout_update.contains("npm install -g @shledery/vetto"));
     assert!(stdout_update.contains("cargo install vetto --locked"));
     assert!(stdout_update.contains("brew upgrade vetto"));
-    assert!(stdout_update.contains("curl -fsSL https://raw.githubusercontent.com/shleder/vetto/main/install.sh | bash"));
+    assert!(stdout_update.contains(
+        "curl -fsSL https://raw.githubusercontent.com/shleder/vetto/main/install.sh | bash"
+    ));
 
     let output_upgrade_json = vetto_cmd()
         .args(["upgrade", "--json"])
@@ -582,10 +581,7 @@ fn test_update_and_upgrade_cli() {
 
 #[test]
 fn test_unhidden_commands_in_help() {
-    let output = vetto_cmd()
-        .arg("--help")
-        .output()
-        .expect("vetto --help");
+    let output = vetto_cmd().arg("--help").output().expect("vetto --help");
     assert!(output.status.success());
     let help_text = String::from_utf8_lossy(&output.stdout);
 
