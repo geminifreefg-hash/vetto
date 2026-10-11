@@ -121,6 +121,8 @@ allow_write = ["$PROJECT"]
 "#,
     );
 
+    let test_cmd = if cfg!(windows) { "git" } else { "echo" };
+
     #[cfg(unix)]
     {
         let out = run_vetto_in(proj.path(), &["--tui=none", "--", "echo", "test"]);
