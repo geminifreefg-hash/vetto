@@ -121,6 +121,8 @@ allow_write = ["$PROJECT"]
 "#,
     );
 
+    let test_cmd = if cfg!(windows) { "git" } else { "echo" };
+
     #[cfg(unix)]
     {
         let out = run_vetto_in(proj.path(), &["--tui=none", "--", "echo", "test"]);
@@ -130,10 +132,19 @@ allow_write = ["$PROJECT"]
     }
 
     // Dry-run mode warns instead of refusing execution
-    let dry_out = run_vetto_in(proj.path(), &["--dry-run", "--", "echo", "test"]);
+    let dry_out = run_vetto_in(proj.path(), &["--dry-run", "--", test_cmd, "status"]);
     assert_eq!(dry_out.status.code(), Some(0));
     let dry_err = format!("{}\n{}", stdout(&dry_out), stderr(&dry_out));
     assert!(dry_err.contains("git_guard") && dry_err.contains("main"));
+
+    // Dry-run mode with auto-branch informs about session branch auto-switch
+    let dry_auto = run_vetto_in(
+        proj.path(),
+        &["--dry-run", "--auto-branch", "--", test_cmd, "status"],
+    );
+    assert_eq!(dry_auto.status.code(), Some(0));
+    let dry_auto_out = stdout(&dry_auto);
+    assert!(dry_auto_out.contains("auto-switch"));
 
     // Test destructive push detection in shim
     assert!(vetto::shim::is_destructive_git_push(&["push".into(), "--force".into()]).is_some());

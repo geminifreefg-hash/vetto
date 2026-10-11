@@ -647,8 +647,11 @@ fn draw_status_buffered(writer: &mut NonblockingStdout, rows_total: u16, text: &
 mod tests {
     use super::*;
 
+    static STDOUT_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     #[test]
     fn test_nonblocking_stdout_capacity_bounds() {
+        let _guard = STDOUT_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let mut writer = NonblockingStdout::new(64);
         assert_eq!(writer.max_capacity, 64);
         assert_eq!(writer.overflow_count, 0);
@@ -668,6 +671,7 @@ mod tests {
 
     #[test]
     fn test_nonblocking_stdout_flag_restoration() {
+        let _guard = STDOUT_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let flags_before = unsafe { libc::fcntl(libc::STDOUT_FILENO, libc::F_GETFL) };
         {
             let writer = NonblockingStdout::new(1024);

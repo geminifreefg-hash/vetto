@@ -365,27 +365,35 @@ pub fn spawn_supervised_session(cfg: &mut RunConfig) -> Result<SupervisedSession
         }
     }
 
-    // 7. Git-guard verification on protected branches
-    if (pol.git_guard || cfg.git_guard) && !pol.allow_write.is_empty() {
-        if let Some(branch) = crate::git::detect_git_branch(&project) {
-            if branch == "main" || branch == "master" {
-                return Err(SuperviseError::Fatal(anyhow::anyhow!(
-                    "git_guard: working copy is on branch '{branch}'; refusing to run with write permissions (create a feature branch, e.g. 'git checkout -b feature/...')"
-                )));
-            }
-        }
-    }
-
-    // 8. Session ID and snapshot / branch management
+    // 7. Session ID and snapshot / branch management
     let session_id = format!(
         "{}-{}",
         chrono::Utc::now().format("%Y%m%d-%H%M%S"),
         std::process::id()
     );
 
-    if cfg.auto_branch || cfg.git_guard {
-        if let Ok(Some(branch)) = crate::shim::ensure_session_branch(&project, &session_id) {
-            eprintln!("vetto: git-guard: switched from main to session branch {branch} to protect default branch");
+    // Git-guard verification on protected branches
+    if (pol.git_guard || cfg.git_guard) && !pol.allow_write.is_empty() {
+        if let Some(branch) = crate::git::detect_git_branch(&project) {
+            if branch == "main" || branch == "master" {
+                if cfg.auto_branch {
+                    match crate::shim::ensure_session_branch(&project, &session_id) {
+                        Ok(Some(new_branch)) => {
+                            eprintln!("vetto: git-guard: switched from {branch} to session branch {new_branch} to protect default branch");
+                        }
+                        Ok(None) => {}
+                        Err(e) => {
+                            return Err(SuperviseError::Fatal(anyhow::anyhow!(
+                                "git_guard: failed to create session branch: {e}"
+                            )));
+                        }
+                    }
+                } else {
+                    return Err(SuperviseError::Fatal(anyhow::anyhow!(
+                        "git_guard: working copy is on branch '{branch}'; refusing to run with write permissions (create a feature branch, e.g. 'git checkout -b feature/...')"
+                    )));
+                }
+            }
         }
     }
 
@@ -971,9 +979,13 @@ pub fn execute_dry_run(cfg: &RunConfig) -> Result<(), SuperviseError> {
     if (pol.git_guard || cfg.git_guard) && !pol.allow_write.is_empty() {
         if let Some(branch) = crate::git::detect_git_branch(&project) {
             if branch == "main" || branch == "master" {
-                eprintln!(
-                    "vetto: warning: git_guard: working copy is on branch '{branch}'; write permissions would be refused (create a feature branch, e.g. 'git checkout -b feature/...')"
-                );
+                if cfg.auto_branch {
+                    println!("  git-guard: would auto-switch from {branch} to session branch");
+                } else {
+                    eprintln!(
+                        "vetto: warning: git_guard: working copy is on branch '{branch}'; write permissions would be refused (create a feature branch, e.g. 'git checkout -b feature/...')"
+                    );
+                }
             }
         }
     }
