@@ -17,9 +17,9 @@ use vetto::exit_codes::{
     EXIT_SUCCESS, EXIT_TIMEOUT,
 };
 
-/// All 30 subcommands specified in `src/cli.rs`.
-const ALL_30_SUBCOMMANDS: &[&str] = &[
-    // 18 Public subcommands
+/// All 31 subcommands specified in `src/cli.rs`.
+const ALL_SUBCOMMANDS: &[&str] = &[
+    // 25 Public subcommands
     "mask",
     "enable",
     "disable",
@@ -35,48 +35,43 @@ const ALL_30_SUBCOMMANDS: &[&str] = &[
     "bench",
     "diff",
     "watchdog",
+    "init",
+    "mcp",
+    "policy",
     "completions",
     "man",
     "shell-env",
-    // 12 Hidden subcommands
-    "init",
-    "hook",
-    "mcp",
-    "shim",
-    "redteam",
-    "policy",
     "scan-secrets",
     "events",
     "audit",
+    "update",
+    // 6 Hidden subcommands
+    "hook",
+    "shim",
+    "redteam",
     "diff-sessions",
     "replay",
     "ssh-proxy",
 ];
 
 const HIDDEN_SUBCOMMANDS: &[&str] = &[
-    "init",
     "hook",
-    "mcp",
     "shim",
     "redteam",
-    "policy",
-    "scan-secrets",
-    "events",
-    "audit",
     "diff-sessions",
     "replay",
     "ssh-proxy",
 ];
 
 #[test]
-fn test_all_30_subcommands_help_parsing() {
+fn test_all_subcommands_help_parsing() {
     assert_eq!(
-        ALL_30_SUBCOMMANDS.len(),
-        30,
-        "Specification requires exactly 30 subcommands"
+        ALL_SUBCOMMANDS.len(),
+        31,
+        "Specification requires all 31 subcommands"
     );
 
-    for &subcmd in ALL_30_SUBCOMMANDS {
+    for &subcmd in ALL_SUBCOMMANDS {
         let out = Command::new(vetto_bin())
             .args([subcmd, "--help"])
             .output()
@@ -113,26 +108,28 @@ fn test_top_level_help_and_hidden_commands_contract() {
 
     // Verify key public subcommands are visible in top-level help
     assert!(help_text.contains("Commands:"), "missing Commands section");
-    assert!(
-        help_text.contains("enable"),
-        "enable must be listed in help"
-    );
-    assert!(
-        help_text.contains("disable"),
-        "disable must be listed in help"
-    );
-    assert!(
-        help_text.contains("doctor"),
-        "doctor must be listed in help"
-    );
-    assert!(
-        help_text.contains("status"),
-        "status must be listed in help"
-    );
-    assert!(help_text.contains("allow"), "allow must be listed in help");
-    assert!(help_text.contains("deny"), "deny must be listed in help");
-    assert!(help_text.contains("run"), "run must be listed in help");
-    assert!(help_text.contains("bench"), "bench must be listed in help");
+    for &public_cmd in &[
+        "enable",
+        "disable",
+        "doctor",
+        "status",
+        "allow",
+        "deny",
+        "run",
+        "bench",
+        "audit",
+        "policy",
+        "init",
+        "mcp",
+        "events",
+        "scan-secrets",
+        "update",
+    ] {
+        assert!(
+            help_text.contains(public_cmd),
+            "{public_cmd} must be listed in help"
+        );
+    }
 
     // Verify hidden subcommands are NOT exposed in top-level commands listing
     for &hidden in HIDDEN_SUBCOMMANDS {

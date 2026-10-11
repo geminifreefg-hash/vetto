@@ -115,6 +115,8 @@ fn preprocess_cli_args(raw_args: &[String]) -> Result<Vec<String>> {
         "replay",
         "ssh-proxy",
         "__ssh-proxy",
+        "update",
+        "upgrade",
         "help",
         "version",
     ];
@@ -664,6 +666,7 @@ fn run() -> Result<()> {
                 bail!("the SSH proxy helper is available on Linux only")
             }
         }
+        Some(cli::Command::Update { json }) => print_update_instructions(*json),
         None => {
             if raw_args.len() <= 1 {
                 return print_zero_arg_summary();
@@ -849,4 +852,34 @@ fn supervise(cfg: RunConfig) -> Result<()> {
 
 fn init(force: bool) -> Result<()> {
     vetto::init::run_init(Path::new("."), force)
+}
+
+fn print_update_instructions(json: bool) -> Result<()> {
+    let current_version = env!("CARGO_PKG_VERSION");
+    let npm_cmd = "npm install -g @shledery/vetto";
+    let cargo_cmd = "cargo install vetto --locked";
+    let brew_cmd = "brew upgrade vetto";
+    let curl_cmd =
+        "curl -fsSL https://raw.githubusercontent.com/shleder/vetto/main/install.sh | bash";
+
+    if json {
+        let payload = serde_json::json!({
+            "current_version": current_version,
+            "methods": {
+                "npm": npm_cmd,
+                "cargo": cargo_cmd,
+                "brew": brew_cmd,
+                "curl": curl_cmd,
+            }
+        });
+        println!("{}", serde_json::to_string_pretty(&payload)?);
+    } else {
+        println!("vetto v{current_version} (current)\n");
+        println!("To update Vetto to the latest release, run one of the following commands:\n");
+        println!("  • npm:     {npm_cmd}");
+        println!("  • cargo:   {cargo_cmd}");
+        println!("  • brew:    {brew_cmd}");
+        println!("  • curl:    {curl_cmd}");
+    }
+    Ok(())
 }
