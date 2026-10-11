@@ -56,6 +56,11 @@ pass_through = [
     "XDG_RUNTIME_DIR",
 ]
 
+
+[security]
+git_guard = true
+auto_deny_secrets = true
+
 [network]
 mode = "allowlist"
 allow = [

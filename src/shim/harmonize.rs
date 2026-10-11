@@ -43,6 +43,11 @@ pub fn harmonize_agent_args(binary_name: &str, raw_args: &[String]) -> Vec<Strin
     args
 }
 
+/// Harmonized inspection for destructive git operations across AI agent invocations.
+pub fn is_destructive_git_operation(args: &[String]) -> Option<&'static str> {
+    super::is_destructive_git_command(args)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -95,5 +100,11 @@ mod tests {
         let args = vec!["prompt".to_string()];
         let harmonized = harmonize_agent_args("claude", &args);
         assert_eq!(harmonized, vec!["prompt"]);
+    }
+
+    #[test]
+    fn test_harmonize_destructive_git_detection() {
+        let args = vec!["reset".to_string(), "--hard".to_string()];
+        assert!(is_destructive_git_operation(&args).is_some());
     }
 }

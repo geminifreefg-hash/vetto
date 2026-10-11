@@ -1057,3 +1057,67 @@ fn test_all_32_agent_profiles_auth_and_config_coverage_tier_full() {
         );
     }
 }
+
+#[test]
+fn test_all_32_agent_profiles_enforce_git_guard_and_auto_deny_secrets() {
+    let temp = TempProject::new("all-32-git-guard");
+    let project = temp.path().join("project");
+    let home = temp.path().join("home");
+    std::fs::create_dir_all(&project).expect("create project dir");
+    std::fs::create_dir_all(&home).expect("create home dir");
+
+    let all_agents = [
+        "codex",
+        "claude",
+        "aider",
+        "antigravity",
+        "opencode",
+        "cursor",
+        "cline",
+        "windsurf",
+        "goose",
+        "devin",
+        "openhands",
+        "copilot",
+        "smolagents",
+        "omp",
+        "zcode",
+        "kimi",
+        "grok",
+        "hermes",
+        "kilo",
+        "pi",
+        "command_code",
+        "freebuff",
+        "deepseek_harness",
+        "omnigent",
+        "crewai",
+        "autogen",
+        "amp",
+        "custom",
+        "swebench",
+        "qwen_code",
+        "roo_code",
+        "browser_use",
+    ];
+
+    for agent in all_agents {
+        let opts = PolicyLoadOptions {
+            agent: Some(agent.to_string()),
+            include_project_policy: false,
+            ..Default::default()
+        };
+
+        let pol = load_with_options("default", None, &project, &home, Tier::Full, &opts)
+            .unwrap_or_else(|e| panic!("Failed to load profile for agent {agent}: {e}"));
+
+        assert!(
+            pol.git_guard,
+            "Agent profile '{agent}' must enforce git_guard = true"
+        );
+        assert!(
+            pol.auto_deny_secrets,
+            "Agent profile '{agent}' must enforce auto_deny_secrets = true"
+        );
+    }
+}

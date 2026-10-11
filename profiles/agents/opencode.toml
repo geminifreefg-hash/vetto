@@ -84,6 +84,11 @@ pass_through = [
 [limits]
 file_size_bytes = 2147483648
 
+
+[security]
+git_guard = true
+auto_deny_secrets = true
+
 [network]
 allow = [
     "api.openai.com",

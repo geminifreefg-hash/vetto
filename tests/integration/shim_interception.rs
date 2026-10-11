@@ -178,6 +178,9 @@ fn test_git_guard_blocks_destructive_commands() {
         &["reset", "--hard"],
         &["clean", "-f"],
         &["branch", "-D"],
+        &["checkout", "-f"],
+        &["checkout", "-B", "main"],
+        &["rm", "-rf", ".git"],
     ];
 
     for args in destructive_commands {
@@ -195,6 +198,13 @@ fn test_git_guard_blocks_destructive_commands() {
             !out.status.success(),
             "destructive git command {:?} must be blocked by git guard",
             args
+        );
+        assert_eq!(
+            out.status.code(),
+            Some(125),
+            "destructive git command {:?} must exit with fail-closed code 125, got {:?}",
+            args,
+            out.status.code()
         );
         let err_text = stderr(&out);
         assert!(

@@ -1443,7 +1443,14 @@ fn forward_data_tunnel(
         }
 
         if !sni_ok {
+            bus.publish(Event::NetRequest {
+                ts: crate::events::types::now(),
+                host: host_tx.clone(),
+                port: target_addr.port(),
+                allowed: false,
+            });
             let _ = outbound.shutdown(std::net::Shutdown::Both);
+            let _ = unix_side.shutdown(std::net::Shutdown::Both);
             return;
         }
 

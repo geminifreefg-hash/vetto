@@ -142,6 +142,132 @@ pub fn atomic_commit_bytes(target_path: &Path, bytes: &[u8]) -> Result<()> {
     atomic_commit_bytes_with_mode(target_path, bytes, None)
 }
 
+/// Clones a source file to `dst` using CoW (FICLONE ioctl on Linux).
+#[cfg(target_os = "linux")]
+pub fn try_reflink_file(src: &File, dst: &File) -> std::io::Result<()> {
+    use std::os::unix::io::AsRawFd;
+    let ret = unsafe { libc::ioctl(dst.as_raw_fd(), 0x40049409, src.as_raw_fd()) };
+    if ret == 0 {
+        Ok(())
+    } else {
+        Err(std::io::Error::last_os_error())
+    }
+}
+
+/// Fallback for non-Linux platforms where FICLONE is unavailable.
+#[cfg(not(target_os = "linux"))]
+pub fn try_reflink_file(_src: &File, _dst: &File) -> std::io::Result<()> {
+    Err(std::io::Error::new(
+        std::io::ErrorKind::Unsupported,
+        "FICLONE CoW unsupported on this platform",
+    ))
+}
+
+/// Atomically clones or copies `src_path` to `target_path` via a temporary sibling file
+/// using Copy-on-Write (`FICLONE` ioctl on Linux) and `std::fs::rename`.
+pub fn atomic_commit_file_cow(
+    src_path: &Path,
+    target_path: &Path,
+    mode: Option<u32>,
+) -> Result<()> {
+    let parent = target_path
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+
+    // Remove any conflicting regular files or symlinks along the ancestor hierarchy (GAP-03)
+    let mut current = PathBuf::new();
+    for comp in parent.components() {
+        current.push(comp);
+        if let Ok(meta) = fs::symlink_metadata(&current) {
+            if !meta.is_dir() {
+                let _ = fs::remove_file(&current);
+            }
+        }
+    }
+
+    fs::create_dir_all(parent)
+        .with_context(|| format!("create parent dir {}", parent.display()))?;
+
+    // Clear any conflicting directory or symlink at the target path itself
+    if let Ok(meta) = fs::symlink_metadata(target_path) {
+        if meta.file_type().is_symlink() {
+            let _ = fs::remove_file(target_path);
+        } else if meta.is_dir() {
+            let _ = fs::remove_dir_all(target_path);
+        }
+    }
+
+    let file_name = target_path
+        .file_name()
+        .context("target path has no filename")?
+        .to_string_lossy();
+
+    let nonce = ROLLBACK_NONCE.fetch_add(1, Ordering::Relaxed);
+    let tmp_name = format!(".{}.vetto_tmp.{}.{}", file_name, std::process::id(), nonce);
+    let tmp_path = parent.join(tmp_name);
+
+    let mut src_file =
+        File::open(src_path).with_context(|| format!("open source file {}", src_path.display()))?;
+
+    let mut tmp_file = match OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&tmp_path)
+    {
+        Ok(f) => f,
+        Err(e) => {
+            let _ = fs::remove_file(&tmp_path);
+            return Err(e)
+                .with_context(|| format!("create atomic tmp file {}", tmp_path.display()));
+        }
+    };
+
+    // Attempt CoW reflink via FICLONE, fallback to standard stream copy
+    if try_reflink_file(&src_file, &tmp_file).is_err() {
+        if let Err(e) = std::io::copy(&mut src_file, &mut tmp_file) {
+            drop(tmp_file);
+            let _ = fs::remove_file(&tmp_path);
+            return Err(e)
+                .with_context(|| format!("copy to atomic tmp file {}", tmp_path.display()));
+        }
+    }
+
+    if let Err(e) = tmp_file.sync_all() {
+        drop(tmp_file);
+        let _ = fs::remove_file(&tmp_path);
+        return Err(e).with_context(|| format!("sync atomic tmp file {}", tmp_path.display()));
+    }
+    drop(tmp_file);
+    drop(src_file);
+
+    #[cfg(unix)]
+    if let Some(m) = mode {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = fs::set_permissions(&tmp_path, fs::Permissions::from_mode(m));
+    }
+    #[cfg(not(unix))]
+    let _ = mode;
+
+    if let Err(e) = fs::rename(&tmp_path, target_path) {
+        let _ = fs::remove_file(&tmp_path);
+        return Err(e).with_context(|| {
+            format!(
+                "atomic swap {} -> {}",
+                tmp_path.display(),
+                target_path.display()
+            )
+        });
+    }
+
+    #[cfg(unix)]
+    if let Ok(dir_file) = File::open(parent) {
+        let _ = dir_file.sync_all();
+    }
+
+    Ok(())
+}
+
 /// Rollback / restore a project snapshot.
 /// 1. Atomically restores all snapshot files (with original permissions).
 /// 2. Deletes any untracked files added during the session.
@@ -744,6 +870,18 @@ mod tests {
             assert_eq!(restored, 0o755);
         }
 
+        let _ = fs::remove_dir_all(&proj);
+    }
+
+    #[test]
+    fn test_atomic_commit_file_cow_and_reflink() {
+        let proj = test_dir("cow-reflink");
+        let src = proj.join("source.txt");
+        let dst = proj.join("dest.txt");
+        fs::write(&src, "atomic cow test data").unwrap();
+
+        atomic_commit_file_cow(&src, &dst, None).expect("atomic commit cow");
+        assert_eq!(fs::read_to_string(&dst).unwrap(), "atomic cow test data");
         let _ = fs::remove_dir_all(&proj);
     }
 }
