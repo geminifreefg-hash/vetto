@@ -388,7 +388,9 @@ pub fn is_destructive_git_command(args: &[String]) -> Option<&'static str> {
                     || (a.starts_with('-') && !a.starts_with("--") && a.contains('f'))
             });
             if has_f_capital_or_force && !has_delete {
-                return Some("destructive 'git branch -f' blocked by vetto git_guard (force-resets branch)");
+                return Some(
+                    "destructive 'git branch -f' blocked by vetto git_guard (force-resets branch)",
+                );
             }
         }
         _ => {}
@@ -1020,16 +1022,14 @@ mod tests {
             "HEAD~1".into()
         ])
         .is_some());
-        assert!(is_destructive_git_command(&[
-            "branch".into(),
-            "-Df".into(),
-            "feat".into()
-        ])
-        .is_some());
+        assert!(
+            is_destructive_git_command(&["branch".into(), "-Df".into(), "feat".into()]).is_some()
+        );
 
         // Reset --keep
         assert!(
-            is_destructive_git_command(&["reset".into(), "--keep".into(), "HEAD~1".into()]).is_some()
+            is_destructive_git_command(&["reset".into(), "--keep".into(), "HEAD~1".into()])
+                .is_some()
         );
 
         // Works with explicit `git` prefix as well
@@ -1065,10 +1065,12 @@ mod tests {
         assert!(is_destructive_git_command(&["restore".into(), "file.txt".into()]).is_none());
 
         // Non-rm commands referencing .git path must NOT be blocked
-        assert!(
-            is_destructive_git_command(&["restore".into(), "--worktree".into(), ".git".into()])
-                .is_none()
-        );
+        assert!(is_destructive_git_command(&[
+            "restore".into(),
+            "--worktree".into(),
+            ".git".into()
+        ])
+        .is_none());
         assert!(
             is_destructive_git_command(&["diff".into(), "-r".into(), ".git".into()]).is_none()
         );
