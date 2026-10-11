@@ -26,6 +26,10 @@
 
 Vetto is an unprivileged sandbox for AI coding CLI agents such as Claude Code, OpenAI Codex, Cursor, OpenCode, and Aider. It isolates filesystem access, network sockets, and child processes between `fork()` and `execve()` using native kernel facilities on Linux and macOS without running a background daemon or requiring root privileges.
 
+<p align="center">
+  <img src="assets/readme/demo.gif" alt="Vetto Terminal Demo" width="880">
+</p>
+
 ---
 
 ## Kernel boundary enforcement
