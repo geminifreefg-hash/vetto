@@ -10,8 +10,8 @@ pub mod snapshot;
 
 pub use ephemeral::{handle_ephemeral_completion, EphemeralGuard};
 pub use rollback::{
-    atomic_commit_bytes, atomic_commit_bytes_with_mode, rollback_repair, rollback_session,
-    RollbackResult,
+    atomic_commit_bytes, atomic_commit_bytes_with_mode, atomic_commit_file_cow, rollback_repair,
+    rollback_session, try_reflink_file, RollbackResult,
 };
 pub use snapshot::{
     create_snapshot, list_snapshots, snapshots_root_dir, try_reflink_clone, SnapshotMetadata,

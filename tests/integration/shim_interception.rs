@@ -176,10 +176,15 @@ fn test_git_guard_blocks_destructive_commands() {
         &["push", "origin", "main"],
         &["push", "master"],
         &["reset", "--hard"],
+        &["reset", "--keep", "HEAD~1"],
         &["clean", "-f"],
         &["branch", "-D"],
+        &["branch", "-f", "main", "HEAD~1"],
         &["checkout", "-f"],
         &["checkout", "-B", "main"],
+        &["switch", "-C", "main"],
+        &["switch", "-f", "main"],
+        &["switch", "--discard-changes", "main"],
         &["rm", "-rf", ".git"],
     ];
 
@@ -210,6 +215,50 @@ fn test_git_guard_blocks_destructive_commands() {
         assert!(
             err_text.contains("git_guard") || err_text.contains("fail-closed"),
             "expected git_guard error message for {:?}: {err_text}",
+            args
+        );
+    }
+
+    // Direct invocation through rm shim must also fail closed with code 125
+    let out_rm = Command::new(vetto_bin())
+        .args(["shim", "rm", "--", "-rf", ".git"])
+        .current_dir(proj_dir)
+        .env("VETTO_GIT_GUARD", "1")
+        .output()
+        .expect("exec vetto shim rm");
+    assert!(
+        !out_rm.status.success(),
+        "direct rm -rf .git shim must be blocked by git_guard"
+    );
+    assert_eq!(
+        out_rm.status.code(),
+        Some(125),
+        "direct rm -rf .git must exit with code 125"
+    );
+
+    // Safe git commands must not be blocked
+    let safe_commands: &[&[&str]] = &[
+        &["status"],
+        &["diff"],
+        &["branch", "-d", "merged-feature"],
+        &["checkout", "-b", "safe-branch"],
+    ];
+
+    for args in safe_commands {
+        let mut full_args = vec!["shim", "git", "--"];
+        full_args.extend(args.iter().copied());
+
+        let out = Command::new(vetto_bin())
+            .args(&full_args)
+            .current_dir(proj_dir)
+            .env("VETTO_GIT_GUARD", "1")
+            .output()
+            .unwrap_or_else(|e| panic!("failed to exec vetto shim git: {e}"));
+
+        let err_text = stderr(&out);
+        assert!(
+            !err_text.contains("blocked by git_guard"),
+            "safe git command {:?} should not be blocked by git_guard: {err_text}",
             args
         );
     }

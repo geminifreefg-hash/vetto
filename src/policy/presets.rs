@@ -12,7 +12,8 @@ use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 
 use super::loader::{
-    RawDeny, RawFilesystem, RawLayer, RawLimits, RawMetadata, RawNetwork, RawStringList,
+    RawDeny, RawFilesystem, RawLayer, RawLimits, RawMetadata, RawNetwork, RawSecurity,
+    RawStringList,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -449,6 +450,11 @@ pub fn preset_layer(preset: Preset, agent: Option<&str>) -> RawLayer {
                 description: Some("Paranoid preset: everything closed, network off".into()),
                 ..Default::default()
             }),
+            security: Some(RawSecurity {
+                git_guard: Some(true),
+                auto_deny_secrets: Some(true),
+                ..Default::default()
+            }),
             filesystem: Some(RawFilesystem {
                 allow_write: Some(RawStringList::Many(vec![
                     "$PROJECT".into(),
@@ -486,6 +492,11 @@ pub fn preset_layer(preset: Preset, agent: Option<&str>) -> RawLayer {
                 metadata: Some(RawMetadata {
                     name: Some("preset:balanced".into()),
                     description: Some("Balanced preset: standard development access".into()),
+                    ..Default::default()
+                }),
+                security: Some(RawSecurity {
+                    git_guard: Some(true),
+                    auto_deny_secrets: Some(true),
                     ..Default::default()
                 }),
                 filesystem: Some(RawFilesystem {
@@ -530,6 +541,11 @@ pub fn preset_layer(preset: Preset, agent: Option<&str>) -> RawLayer {
                     description: Some(
                         "Yolo preset: permissive write/read with secret masking".into(),
                     ),
+                    ..Default::default()
+                }),
+                security: Some(RawSecurity {
+                    git_guard: Some(true),
+                    auto_deny_secrets: Some(true),
                     ..Default::default()
                 }),
                 filesystem: Some(RawFilesystem {
@@ -1140,6 +1156,26 @@ mod tests {
         let paths = deny.paths.expect("must have paths").into_vec();
         assert!(paths.iter().any(|p| p.contains(".env")));
         assert!(paths.iter().any(|p| p.contains(".key")));
+    }
+
+    #[test]
+    fn preset_layers_enforce_git_guard_and_auto_deny_secrets() {
+        for preset in [Preset::Paranoid, Preset::Balanced, Preset::Yolo] {
+            let layer = preset_layer(preset, Some("claude"));
+            let sec = layer
+                .security
+                .expect("preset must include security configuration");
+            assert_eq!(
+                sec.git_guard,
+                Some(true),
+                "preset {preset} must enforce git_guard = true"
+            );
+            assert_eq!(
+                sec.auto_deny_secrets,
+                Some(true),
+                "preset {preset} must enforce auto_deny_secrets = true"
+            );
+        }
     }
 
     #[test]
