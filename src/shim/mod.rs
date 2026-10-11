@@ -1071,9 +1071,7 @@ mod tests {
             ".git".into()
         ])
         .is_none());
-        assert!(
-            is_destructive_git_command(&["diff".into(), "-r".into(), ".git".into()]).is_none()
-        );
+        assert!(is_destructive_git_command(&["diff".into(), "-r".into(), ".git".into()]).is_none());
         assert!(
             is_destructive_git_command(&["log".into(), "--follow".into(), ".git".into()]).is_none()
         );
