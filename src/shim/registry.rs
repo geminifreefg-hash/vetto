@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 
 /// Default developer toolchain binaries intercepted by Vetto shims.
 pub const DEFAULT_BINARIES: &[&str] = &[
-    "bash", "zsh", "sh", "git", "node", "nodejs", "npm", "npx", "pnpm", "yarn", "bun", "deno",
+    "bash", "zsh", "sh", "git", "rm", "node", "nodejs", "npm", "npx", "pnpm", "yarn", "bun", "deno",
     "python", "python3", "pip", "pip3", "cargo", "rustc", "go", "docker", "podman",
 ];
 

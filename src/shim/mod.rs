@@ -238,10 +238,41 @@ pub fn is_destructive_git_command(args: &[String]) -> Option<&'static str> {
         return None;
     }
 
+    // Direct check for destructive rm commands targeting the .git repository
+    let is_rm = args.iter().any(|a| {
+        a == "rm" || a.ends_with("/rm") || a.ends_with("\\rm.exe")
+    });
+    let targets_git = args.iter().any(|a| {
+        let norm = a.replace('\\', "/");
+        norm == ".git"
+            || norm == ".git/"
+            || norm.ends_with("/.git")
+            || norm.ends_with("/.git/")
+            || norm.contains("/.git/")
+            || norm.starts_with(".git/")
+    });
+    if targets_git && (is_rm || args.iter().any(|a| a.starts_with('-') && (a.contains('r') || a.contains('f')))) {
+        return Some("destructive 'rm -rf .git' blocked by vetto git_guard (preserves git repository)");
+    }
+
     let (subcmd_idx, subcmd) = find_git_subcommand(args)?;
     let sub_args = &args[subcmd_idx + 1..];
 
     match subcmd {
+        "rm" => {
+            let targets_git = sub_args.iter().any(|a| {
+                let norm = a.replace('\\', "/");
+                norm == ".git"
+                    || norm == ".git/"
+                    || norm.ends_with("/.git")
+                    || norm.ends_with("/.git/")
+                    || norm.contains("/.git/")
+                    || norm.starts_with(".git/")
+            });
+            if targets_git {
+                return Some("destructive 'rm -rf .git' blocked by vetto git_guard (preserves git repository)");
+            }
+        }
         "push" => {
             for arg in sub_args {
                 if arg == "main"
@@ -270,7 +301,7 @@ pub fn is_destructive_git_command(args: &[String]) -> Option<&'static str> {
         }
         "reset" => {
             for arg in sub_args {
-                if arg == "--hard" || arg.starts_with("--hard=") {
+                if arg == "--hard" || arg.starts_with("--hard=") || arg == "--merge" {
                     return Some(
                         "destructive 'git reset --hard' blocked by vetto git_guard (wipes uncommitted changes)",
                     );
@@ -294,7 +325,16 @@ pub fn is_destructive_git_command(args: &[String]) -> Option<&'static str> {
         "checkout" => {
             let has_dot = sub_args.iter().any(|a| a == "." || a == ":/" || a == ":");
             let has_force = sub_args.iter().any(|a| a == "-f" || a == "--force");
-            if has_dot || has_force {
+            let has_b_capital = sub_args.iter().any(|a| a == "-B");
+            if has_b_capital {
+                return Some("destructive 'git checkout -B' blocked by vetto git_guard (overwrites branch)");
+            }
+            if has_force {
+                return Some(
+                    "destructive 'git checkout -f' blocked by vetto git_guard (discards uncommitted working tree changes)",
+                );
+            }
+            if has_dot {
                 return Some(
                     "destructive 'git checkout .' blocked by vetto git_guard (discards working tree changes)",
                 );
@@ -434,6 +474,29 @@ pub fn diagnose_missing_host_binary(binary_name: &str) -> String {
     )
 }
 
+/// Records a git guard fail-closed violation in the cryptographic AuditLedger.
+fn record_git_guard_audit_violation(binary_name: &str, clean_args: &[String], reason: &str) {
+    let session_id = env::var("VETTO_SESSION_ID").unwrap_or_else(|_| "active-session".to_string());
+    let audit_dir = env::var("VETTO_AUDIT_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| std::env::temp_dir().join("vetto-audit"));
+    let _ = std::fs::create_dir_all(&audit_dir);
+    let ledger_path = audit_dir.join(format!("vetto-audit-{}.jsonl", session_id));
+
+    if let Ok(mut ledger) = crate::audit::AuditLedger::new(&ledger_path) {
+        let cmd_str = format!("{binary_name} {}", clean_args.join(" "));
+        let rec = crate::audit::VettoAuditRecord::syscall_denial(
+            &session_id,
+            "git_guard",
+            "execve",
+            format!("{cmd_str}: {reason}"),
+            "git_guard",
+            crate::audit::SyscallActionTaken::Blocked,
+        );
+        let _ = ledger.record_audit_record(&rec);
+    }
+}
+
 /// Fast native dispatch entrypoint for shimmed binaries.
 pub fn dispatch(binary_name: &str, args: &[String]) -> Result<i32> {
     let (allow_override, no_loop_guard, configured_timeout, raw_clean_args) = parse_shim_args(args);
@@ -453,15 +516,30 @@ pub fn dispatch(binary_name: &str, args: &[String]) -> Result<i32> {
         }
     };
 
-    // Git guard check: block destructive git commands
-    if (binary_name == "git" || binary_name.ends_with("/git") || binary_name.ends_with("\\git.exe"))
+    let is_git_or_rm = binary_name == "git"
+        || binary_name.ends_with("/git")
+        || binary_name.ends_with("\\git.exe")
+        || binary_name == "rm"
+        || binary_name.ends_with("/rm")
+        || binary_name.ends_with("\\rm.exe");
+
+    // Git guard check: block destructive git and repository deletion commands
+    if is_git_or_rm
         && (is_sandboxed()
             || env::var("VETTO_GIT_GUARD")
                 .map(|v| v == "1")
                 .unwrap_or(false))
         && !bypass_active
     {
-        if let Some(reason) = is_destructive_git_command(&clean_args) {
+        let mut check_args = clean_args.clone();
+        if (binary_name == "rm" || binary_name.ends_with("/rm") || binary_name.ends_with("\\rm.exe"))
+            && !check_args.iter().any(|a| a == "rm")
+        {
+            check_args.insert(0, "rm".to_string());
+        }
+
+        if let Some(reason) = is_destructive_git_command(&check_args) {
+            record_git_guard_audit_violation(binary_name, &clean_args, reason);
             eprintln!("vetto: fail-closed: destructive git command blocked by git_guard: {reason}");
             bail!("fail-closed: destructive git command blocked by git_guard: {reason}");
         }
@@ -856,6 +934,17 @@ mod tests {
             "feat".into()
         ])
         .is_some());
+
+        // Destructive rm -rf .git
+        assert!(is_destructive_git_command(&["rm".into(), "-rf".into(), ".git".into()]).is_some());
+        assert!(is_destructive_git_command(&["rm".into(), "-f".into(), "-r".into(), ".git".into()]).is_some());
+        assert!(is_destructive_git_command(&["rm".into(), "-rf".into(), ".git/".into()]).is_some());
+        assert!(is_destructive_git_command(&["rm".into(), "-rf".into(), "subdir/.git".into()]).is_some());
+        assert!(is_destructive_git_command(&["git".into(), "rm".into(), "-rf".into(), ".git".into()]).is_some());
+        assert!(is_destructive_git_command(&["rm".into(), "-rf".into(), "src".into()]).is_none());
+
+        // Checkout -B
+        assert!(is_destructive_git_command(&["checkout".into(), "-B".into(), "feat".into()]).is_some());
 
         // Works with explicit `git` prefix as well
         assert!(
