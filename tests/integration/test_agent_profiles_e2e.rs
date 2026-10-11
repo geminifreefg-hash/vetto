@@ -1121,3 +1121,56 @@ fn test_all_32_agent_profiles_enforce_git_guard_and_auto_deny_secrets() {
         );
     }
 }
+
+#[test]
+fn test_all_agent_profiles_network_allowlists() {
+    let network_enabled_agents = [
+        ("codex", "api.openai.com"),
+        ("claude", "api.anthropic.com"),
+        ("aider", "api.openai.com"),
+        ("antigravity", "antigravity.google"),
+        ("opencode", "opencode.ai"),
+        ("cursor", "api.cursor.sh"),
+        ("cline", "api.cline.bot"),
+        ("windsurf", "api.codeium.com"),
+        ("goose", "api.openai.com"),
+        ("devin", "api.devin.ai"),
+        ("openhands", "api.all-hands.dev"),
+        ("copilot", "copilot-proxy.githubusercontent.com"),
+        ("smolagents", "huggingface.co"),
+        ("omp", "omp.sh"),
+        ("zcode", "api.z.ai"),
+        ("kimi", "api.moonshot.cn"),
+        ("grok", "api.x.ai"),
+        ("hermes", "nousresearch.com"),
+        ("kilo", "api.kilo.ai"),
+        ("pi", "api.groq.com"),
+        ("command_code", "api.cohere.com"),
+        ("freebuff", "api.deepseek.com"),
+        ("deepseek_harness", "api.deepseek.com"),
+        ("omnigent", "api.omnigent.ai"),
+        ("crewai", "app.crewai.com"),
+        ("autogen", "openrouter.ai"),
+        ("amp", "ampcode.com"),
+        ("qwen_code", "dashscope.aliyuncs.com"),
+        ("roo_code", "openrouter.ai"),
+        ("browser_use", "playwright.dev"),
+    ];
+
+    for (agent, expected_domain) in network_enabled_agents {
+        let allowlist = vetto::policy::presets::agent_network_allowlist(agent);
+        assert!(
+            !allowlist.is_empty(),
+            "Agent '{agent}' must have non-empty network allowlist"
+        );
+        assert!(
+            allowlist.iter().any(|d| d == expected_domain),
+            "Agent '{agent}' allowlist must contain '{expected_domain}', got: {:?}",
+            allowlist
+        );
+    }
+
+    // Verify offline-by-default agents
+    assert!(vetto::policy::presets::agent_network_allowlist("custom").is_empty());
+    assert!(vetto::policy::presets::agent_network_allowlist("swebench").is_empty());
+}

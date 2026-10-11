@@ -1449,6 +1449,23 @@ fn forward_data_tunnel(
                 port: target_addr.port(),
                 allowed: false,
             });
+            #[cfg(unix)]
+            {
+                use std::os::unix::io::AsRawFd;
+                let linger = libc::linger {
+                    l_onoff: 1,
+                    l_linger: 0,
+                };
+                unsafe {
+                    libc::setsockopt(
+                        outbound.as_raw_fd(),
+                        libc::SOL_SOCKET,
+                        libc::SO_LINGER,
+                        &linger as *const _ as *const libc::c_void,
+                        std::mem::size_of::<libc::linger>() as libc::socklen_t,
+                    );
+                }
+            }
             let _ = outbound.shutdown(std::net::Shutdown::Both);
             let _ = unix_side.shutdown(std::net::Shutdown::Both);
             return;

@@ -251,12 +251,7 @@ pub fn is_destructive_git_command(args: &[String]) -> Option<&'static str> {
             || norm.contains("/.git/")
             || norm.starts_with(".git/")
     });
-    if targets_git
-        && (is_rm
-            || args
-                .iter()
-                .any(|a| a.starts_with('-') && (a.contains('r') || a.contains('f'))))
-    {
+    if is_rm && targets_git {
         return Some(
             "destructive 'rm -rf .git' blocked by vetto git_guard (preserves git repository)",
         );
@@ -308,7 +303,12 @@ pub fn is_destructive_git_command(args: &[String]) -> Option<&'static str> {
         }
         "reset" => {
             for arg in sub_args {
-                if arg == "--hard" || arg.starts_with("--hard=") || arg == "--merge" {
+                if arg == "--hard"
+                    || arg.starts_with("--hard=")
+                    || arg == "--merge"
+                    || arg == "--keep"
+                    || arg.starts_with("--keep=")
+                {
                     return Some(
                         "destructive 'git reset --hard' blocked by vetto git_guard (wipes uncommitted changes)",
                     );
@@ -349,6 +349,22 @@ pub fn is_destructive_git_command(args: &[String]) -> Option<&'static str> {
                 );
             }
         }
+        "switch" => {
+            let has_c_capital = sub_args.iter().any(|a| a == "-C");
+            if has_c_capital {
+                return Some(
+                    "destructive 'git switch -C' blocked by vetto git_guard (overwrites branch)",
+                );
+            }
+            let has_force = sub_args
+                .iter()
+                .any(|a| a == "-f" || a == "--force" || a == "--discard-changes");
+            if has_force {
+                return Some(
+                    "destructive 'git switch --discard-changes' blocked by vetto git_guard (discards uncommitted working tree changes)",
+                );
+            }
+        }
         "restore" => {
             let has_dot = sub_args.iter().any(|a| a == "." || a == ":/" || a == ":");
             if has_dot {
@@ -358,11 +374,23 @@ pub fn is_destructive_git_command(args: &[String]) -> Option<&'static str> {
             }
         }
         "branch" => {
-            let has_capital_d = sub_args.iter().any(|a| a == "-D");
+            let has_capital_d = sub_args.iter().any(|a| {
+                a == "-D" || (a.starts_with('-') && !a.starts_with("--") && a.contains('D'))
+            });
             let has_delete = sub_args.iter().any(|a| a == "--delete" || a == "-d");
             let has_force = sub_args.iter().any(|a| a == "--force" || a == "-f");
             if has_capital_d || (has_delete && has_force) {
                 return Some("destructive 'git branch -D' blocked by vetto git_guard");
+            }
+            let has_f_capital_or_force = sub_args.iter().any(|a| {
+                a == "-f"
+                    || a == "--force"
+                    || (a.starts_with('-') && !a.starts_with("--") && a.contains('f'))
+            });
+            if has_f_capital_or_force && !has_delete {
+                return Some(
+                    "destructive 'git branch -f' blocked by vetto git_guard (force-resets branch)",
+                );
             }
         }
         _ => {}
@@ -969,9 +997,39 @@ mod tests {
         .is_some());
         assert!(is_destructive_git_command(&["rm".into(), "-rf".into(), "src".into()]).is_none());
 
-        // Checkout -B
+        // Checkout -B and Switch -C / -f
         assert!(
             is_destructive_git_command(&["checkout".into(), "-B".into(), "feat".into()]).is_some()
+        );
+        assert!(
+            is_destructive_git_command(&["switch".into(), "-C".into(), "feat".into()]).is_some()
+        );
+        assert!(
+            is_destructive_git_command(&["switch".into(), "-f".into(), "main".into()]).is_some()
+        );
+        assert!(is_destructive_git_command(&[
+            "switch".into(),
+            "--discard-changes".into(),
+            "main".into()
+        ])
+        .is_some());
+
+        // Branch -f force-resets branch
+        assert!(is_destructive_git_command(&[
+            "branch".into(),
+            "-f".into(),
+            "main".into(),
+            "HEAD~1".into()
+        ])
+        .is_some());
+        assert!(
+            is_destructive_git_command(&["branch".into(), "-Df".into(), "feat".into()]).is_some()
+        );
+
+        // Reset --keep
+        assert!(
+            is_destructive_git_command(&["reset".into(), "--keep".into(), "HEAD~1".into()])
+                .is_some()
         );
 
         // Works with explicit `git` prefix as well
@@ -1005,6 +1063,25 @@ mod tests {
         );
         assert!(is_destructive_git_command(&["clean".into(), "-n".into()]).is_none());
         assert!(is_destructive_git_command(&["restore".into(), "file.txt".into()]).is_none());
+
+        // Non-rm commands referencing .git path must NOT be blocked
+        assert!(is_destructive_git_command(&[
+            "restore".into(),
+            "--worktree".into(),
+            ".git".into()
+        ])
+        .is_none());
+        assert!(is_destructive_git_command(&["diff".into(), "-r".into(), ".git".into()]).is_none());
+        assert!(
+            is_destructive_git_command(&["log".into(), "--follow".into(), ".git".into()]).is_none()
+        );
+        assert!(is_destructive_git_command(&[
+            "checkout".into(),
+            "-b".into(),
+            "feat".into(),
+            ".git".into()
+        ])
+        .is_none());
     }
 
     #[test]
