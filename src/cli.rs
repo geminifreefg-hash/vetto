@@ -385,7 +385,6 @@ pub enum Command {
     /// Inspect active autonomous loop counters, failing commands, and monitored workspaces
     Watchdog(WatchdogArgs),
     /// Analyze project ecosystem and generate a tailored policy.toml policy
-    #[command(hide = true)]
     Init {
         /// Overwrite existing policy if present
         #[arg(long, short = 'f')]
@@ -398,7 +397,6 @@ pub enum Command {
         command: HookCommand,
     },
     /// Run or wrap Model Context Protocol (MCP) servers
-    #[command(hide = true)]
     Mcp {
         #[command(subcommand)]
         command: Option<McpCommand>,
@@ -422,7 +420,6 @@ pub enum Command {
         json: bool,
     },
     /// Explain the effective policy or lint it for dangerous configurations.
-    #[command(hide = true)]
     Policy {
         #[command(subcommand)]
         command: PolicyCommand,
@@ -448,7 +445,6 @@ pub enum Command {
         profile: Option<String>,
     },
     /// Scan project directory for exposed secrets and credentials
-    #[command(hide = true)]
     ScanSecrets {
         /// Target directory or file to scan (defaults to current directory)
         #[arg(value_name = "PATH")]
@@ -464,7 +460,6 @@ pub enum Command {
         max_files: Option<usize>,
     },
     /// Tail and filter JSONL session event logs.
-    #[command(hide = true)]
     Events {
         /// Path to session JSONL log file or session identifier
         #[arg(value_name = "SESSION")]
@@ -483,7 +478,6 @@ pub enum Command {
         table: bool,
     },
     /// Inspect recorded session events, filesystem denials, blocked egress, and filtered syscalls.
-    #[command(hide = true)]
     Audit {
         /// Session ID, report/log path to inspect, or omit to list sessions
         #[arg(value_name = "SESSION_ID")]
@@ -514,6 +508,13 @@ pub enum Command {
         /// Verify cryptographic integrity of the session audit ledger
         #[arg(long)]
         verify: bool,
+    },
+    /// Print instructions and commands to update Vetto to the latest release
+    #[command(alias = "upgrade")]
+    Update {
+        /// Emit machine-readable JSON
+        #[arg(long)]
+        json: bool,
     },
     /// Compare two session JSON audit reports (metric deltas and violation diffs).
     #[command(name = "diff-sessions", hide = true)]
@@ -1453,6 +1454,22 @@ mod tests {
                 "error for {subcmd}: {err_str}"
             );
         }
+    }
+
+    #[test]
+    fn test_update_and_upgrade_subcommand_parsing() {
+        let update_cli = Cli::try_parse_from(["vetto", "update"]).expect("update parsing");
+        assert!(matches!(
+            update_cli.command,
+            Some(Command::Update { json: false })
+        ));
+
+        let upgrade_cli =
+            Cli::try_parse_from(["vetto", "upgrade", "--json"]).expect("upgrade parsing");
+        assert!(matches!(
+            upgrade_cli.command,
+            Some(Command::Update { json: true })
+        ));
     }
 
     #[test]

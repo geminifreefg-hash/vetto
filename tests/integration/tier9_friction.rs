@@ -548,3 +548,55 @@ fn test_tui_10_fps_and_decstbm_scroll_isolation() {
         "expired alert must not appear in status_text: {expired_text}"
     );
 }
+
+#[test]
+fn test_update_and_upgrade_cli() {
+    let output_update = vetto_cmd().arg("update").output().expect("vetto update");
+    assert!(output_update.status.success());
+    let stdout_update = String::from_utf8_lossy(&output_update.stdout);
+    assert!(stdout_update.contains(env!("CARGO_PKG_VERSION")));
+    assert!(stdout_update.contains("npm install -g @shledery/vetto"));
+    assert!(stdout_update.contains("cargo install vetto --locked"));
+    assert!(stdout_update.contains("brew upgrade vetto"));
+    assert!(stdout_update.contains(
+        "curl -fsSL https://raw.githubusercontent.com/shleder/vetto/main/install.sh | bash"
+    ));
+
+    let output_upgrade_json = vetto_cmd()
+        .args(["upgrade", "--json"])
+        .output()
+        .expect("vetto upgrade --json");
+    assert!(output_upgrade_json.status.success());
+    let stdout_json = String::from_utf8_lossy(&output_upgrade_json.stdout);
+    let val: serde_json::Value = serde_json::from_str(&stdout_json).expect("valid json");
+    assert_eq!(val["current_version"], env!("CARGO_PKG_VERSION"));
+    assert_eq!(val["methods"]["npm"], "npm install -g @shledery/vetto");
+    assert_eq!(val["methods"]["cargo"], "cargo install vetto --locked");
+    assert_eq!(val["methods"]["brew"], "brew upgrade vetto");
+    assert_eq!(
+        val["methods"]["curl"],
+        "curl -fsSL https://raw.githubusercontent.com/shleder/vetto/main/install.sh | bash"
+    );
+}
+
+#[test]
+fn test_unhidden_commands_in_help() {
+    let output = vetto_cmd().arg("--help").output().expect("vetto --help");
+    assert!(output.status.success());
+    let help_text = String::from_utf8_lossy(&output.stdout);
+
+    for cmd in [
+        "audit",
+        "policy",
+        "init",
+        "mcp",
+        "events",
+        "scan-secrets",
+        "update",
+    ] {
+        assert!(
+            help_text.contains(cmd),
+            "command '{cmd}' must be visible in vetto --help"
+        );
+    }
+}
