@@ -5,6 +5,17 @@ Keep a Changelog; versioning follows SemVer.
 
 ## [Unreleased]
 
+## [0.6.4] - 2026-10-11
+
+### Added
+- **Interactive Terminal Demo (`assets/readme/demo.gif`)**:
+  - Embedded optimized Catppuccin Mocha terminal GIF showcasing real-time isolation, credential masking, and zero-overhead execution of Codex CLI.
+- **Concise Developer-First README (`README.md`)**:
+  - Restructured README into a streamlined, high-signal format with single-command install recipes, kernel isolation matrix, and links to detailed architecture guides in `docs/`.
+- **CLI Subcommand Visibility & Safe Update (`src/cli.rs`, `src/main.rs`)**:
+  - Unhid core operational subcommands (`audit`, `policy`, `init`, `mcp`, `events`, `scan-secrets`) in top-level `vetto --help`.
+  - Added dedicated `vetto update` subcommand (with `upgrade` alias and `--json` format) providing explicit, copy-paste commands for updating across npm, cargo, brew, and curl.
+
 ## [0.6.3] - 2026-10-10
 
 ### Added
