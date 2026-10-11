@@ -207,8 +207,8 @@ pub fn atomic_commit_file_cow(
     let tmp_name = format!(".{}.vetto_tmp.{}.{}", file_name, std::process::id(), nonce);
     let tmp_path = parent.join(tmp_name);
 
-    let mut src_file = File::open(src_path)
-        .with_context(|| format!("open source file {}", src_path.display()))?;
+    let mut src_file =
+        File::open(src_path).with_context(|| format!("open source file {}", src_path.display()))?;
 
     let mut tmp_file = match OpenOptions::new()
         .write(true)

@@ -239,9 +239,9 @@ pub fn is_destructive_git_command(args: &[String]) -> Option<&'static str> {
     }
 
     // Direct check for destructive rm commands targeting the .git repository
-    let is_rm = args.iter().any(|a| {
-        a == "rm" || a.ends_with("/rm") || a.ends_with("\\rm.exe")
-    });
+    let is_rm = args
+        .iter()
+        .any(|a| a == "rm" || a.ends_with("/rm") || a.ends_with("\\rm.exe"));
     let targets_git = args.iter().any(|a| {
         let norm = a.replace('\\', "/");
         norm == ".git"
@@ -251,8 +251,15 @@ pub fn is_destructive_git_command(args: &[String]) -> Option<&'static str> {
             || norm.contains("/.git/")
             || norm.starts_with(".git/")
     });
-    if targets_git && (is_rm || args.iter().any(|a| a.starts_with('-') && (a.contains('r') || a.contains('f')))) {
-        return Some("destructive 'rm -rf .git' blocked by vetto git_guard (preserves git repository)");
+    if targets_git
+        && (is_rm
+            || args
+                .iter()
+                .any(|a| a.starts_with('-') && (a.contains('r') || a.contains('f'))))
+    {
+        return Some(
+            "destructive 'rm -rf .git' blocked by vetto git_guard (preserves git repository)",
+        );
     }
 
     let (subcmd_idx, subcmd) = find_git_subcommand(args)?;
@@ -327,7 +334,9 @@ pub fn is_destructive_git_command(args: &[String]) -> Option<&'static str> {
             let has_force = sub_args.iter().any(|a| a == "-f" || a == "--force");
             let has_b_capital = sub_args.iter().any(|a| a == "-B");
             if has_b_capital {
-                return Some("destructive 'git checkout -B' blocked by vetto git_guard (overwrites branch)");
+                return Some(
+                    "destructive 'git checkout -B' blocked by vetto git_guard (overwrites branch)",
+                );
             }
             if has_force {
                 return Some(
@@ -532,7 +541,9 @@ pub fn dispatch(binary_name: &str, args: &[String]) -> Result<i32> {
         && !bypass_active
     {
         let mut check_args = clean_args.clone();
-        if (binary_name == "rm" || binary_name.ends_with("/rm") || binary_name.ends_with("\\rm.exe"))
+        if (binary_name == "rm"
+            || binary_name.ends_with("/rm")
+            || binary_name.ends_with("\\rm.exe"))
             && !check_args.iter().any(|a| a == "rm")
         {
             check_args.insert(0, "rm".to_string());
@@ -937,14 +948,31 @@ mod tests {
 
         // Destructive rm -rf .git
         assert!(is_destructive_git_command(&["rm".into(), "-rf".into(), ".git".into()]).is_some());
-        assert!(is_destructive_git_command(&["rm".into(), "-f".into(), "-r".into(), ".git".into()]).is_some());
+        assert!(is_destructive_git_command(&[
+            "rm".into(),
+            "-f".into(),
+            "-r".into(),
+            ".git".into()
+        ])
+        .is_some());
         assert!(is_destructive_git_command(&["rm".into(), "-rf".into(), ".git/".into()]).is_some());
-        assert!(is_destructive_git_command(&["rm".into(), "-rf".into(), "subdir/.git".into()]).is_some());
-        assert!(is_destructive_git_command(&["git".into(), "rm".into(), "-rf".into(), ".git".into()]).is_some());
+        assert!(
+            is_destructive_git_command(&["rm".into(), "-rf".into(), "subdir/.git".into()])
+                .is_some()
+        );
+        assert!(is_destructive_git_command(&[
+            "git".into(),
+            "rm".into(),
+            "-rf".into(),
+            ".git".into()
+        ])
+        .is_some());
         assert!(is_destructive_git_command(&["rm".into(), "-rf".into(), "src".into()]).is_none());
 
         // Checkout -B
-        assert!(is_destructive_git_command(&["checkout".into(), "-B".into(), "feat".into()]).is_some());
+        assert!(
+            is_destructive_git_command(&["checkout".into(), "-B".into(), "feat".into()]).is_some()
+        );
 
         // Works with explicit `git` prefix as well
         assert!(
