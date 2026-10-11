@@ -5,6 +5,20 @@ Keep a Changelog; versioning follows SemVer.
 
 ## [Unreleased]
 
+## [0.6.5] - 2026-10-11
+
+### Added
+- **Hardcore Git Guard & Destructive Command Interception (`src/shim/mod.rs`, `src/shim/harmonize.rs`)**:
+  - Intercepts destructive git actions (`reset --hard/--merge/--keep`, `clean -f`, `push --force`, `branch -D/-f`, `checkout -f/-B`, `switch -f/-C/--discard-changes`, and any `rm` targeting `.git`) with fail-closed termination (Exit 125, `INV-01`) and audit ledger recording.
+- **Auto-Branch Session Isolation (`src/supervise/spawn.rs`)**:
+  - Automatically branches off `main`/`master` into isolated session branches `vetto/session-<id>` when `--auto-branch` is active, safeguarding default branches without failing supervised sessions.
+- **Granular L7 Network Firewall & TCP RST (`src/sandbox/linux/net_relay.rs`, `src/policy/presets.rs`)**:
+  - Enforced official LLM API endpoints across all 32 agent profiles; immediately sends TCP RST via `SO_LINGER(1, 0)` on SNI mismatch or unauthorized egress attempts to prevent hanging sockets.
+- **Atomic CoW Reflink Rollback (`src/rescue/rollback.rs`, `src/rescue/mod.rs`)**:
+  - Added two-phase atomic file rollback using Linux `ioctl(FICLONE)` reflink copies with sibling temporary files and parent directory fsync.
+- **Agent Profiles & Preset Security Alignment (`profiles/agents/*.toml`, `src/policy/presets.rs`)**:
+  - Enforced `git_guard = true` and `auto_deny_secrets = true` across all 31 interactive AI coding agents, with dedicated evaluation exception for `swebench.toml`.
+
 ## [0.6.4] - 2026-10-11
 
 ### Added
