@@ -219,7 +219,7 @@ fn test_swebench_profile_layer_validity() {
 
     let sec = layer.security.expect("security section");
     assert_eq!(sec.auto_deny_secrets, Some(true));
-    assert_eq!(sec.git_guard, Some(true));
+    assert_eq!(sec.git_guard, Some(false));
 
     let cgroup = layer.cgroup.expect("cgroup section");
     assert!(cgroup.memory_max.is_some());

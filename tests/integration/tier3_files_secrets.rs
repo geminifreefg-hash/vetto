@@ -121,10 +121,19 @@ allow_write = ["$PROJECT"]
 "#,
     );
 
-    let out = run_vetto_in(proj.path(), &["--dry-run", "--", "echo", "test"]);
-    assert_ne!(out.status.code(), Some(0));
-    let err = format!("{}\n{}", stdout(&out), stderr(&out));
-    assert!(err.contains("git_guard") && err.contains("main"));
+    #[cfg(unix)]
+    {
+        let out = run_vetto_in(proj.path(), &["--tui=none", "--", "echo", "test"]);
+        assert_ne!(out.status.code(), Some(0));
+        let err = format!("{}\n{}", stdout(&out), stderr(&out));
+        assert!(err.contains("git_guard") && err.contains("main"));
+    }
+
+    // Dry-run mode warns instead of refusing execution
+    let dry_out = run_vetto_in(proj.path(), &["--dry-run", "--", "echo", "test"]);
+    assert_eq!(dry_out.status.code(), Some(0));
+    let dry_err = format!("{}\n{}", stdout(&dry_out), stderr(&dry_out));
+    assert!(dry_err.contains("git_guard") && dry_err.contains("main"));
 
     // Test destructive push detection in shim
     assert!(vetto::shim::is_destructive_git_push(&["push".into(), "--force".into()]).is_some());
