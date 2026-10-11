@@ -305,9 +305,12 @@ mod tests {
 
     #[test]
     fn macos_tcc_hint_fires_only_on_eperm_for_guarded_paths() {
-        let home = std::env::var_os("HOME")
+        let Some(home) = std::env::var_os("HOME")
+            .or_else(|| std::env::var_os("USERPROFILE"))
             .map(PathBuf::from)
-            .expect("HOME is set");
+        else {
+            return;
+        };
         let guarded = home.join("Documents").join("work");
         let eperm = std::io::Error::from_raw_os_error(1);
         assert_eq!(
