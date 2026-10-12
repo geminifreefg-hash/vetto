@@ -2550,7 +2550,10 @@ fn test_m4_sandbox_preflight_verify_simulated_and_json_schema() {
     assert_eq!(report.status(), "pass");
     assert_eq!(report.tier, "simulated");
     assert_eq!(report.leaks(), 0);
-    assert!(report.duration_ms < 250, "Duration must be < 250ms (simulated battery)");
+    assert!(
+        report.duration_ms < 250,
+        "Duration must be < 250ms (simulated battery)"
+    );
     assert_eq!(report.sealed_contract_hash, contract.sealed_contract_hash);
 
     // 19.2: JSON Schema validation
