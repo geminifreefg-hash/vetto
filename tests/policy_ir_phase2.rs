@@ -4,7 +4,7 @@ use vetto::policy_ir::{
     authorize_action, compile as legacy_compile, validate as legacy_validate, Action,
     ActionVerdict, CompilerError, ExecutionState, ExecutionStateMachine, NetworkMode,
     PolicyCompiler, PolicyError, RequestedPolicy, SecurityContract, SecurityLevel,
-    StateTransitionError,
+    StateTransitionError, UnsealedSecurityContract,
 };
 
 #[test]
@@ -169,7 +169,9 @@ fn test_contract_serde_roundtrip() {
     assert_eq!(deserialized.contract_digest_blake3, "");
 
     // When resealed, digest is valid
-    let resealed = deserialized.unsealed().seal().expect("reseal");
+    let unsealed_contract: UnsealedSecurityContract =
+        serde_json::from_str(&json).expect("deserialize unsealed");
+    let resealed = unsealed_contract.seal().expect("reseal");
     assert!(resealed.verify_digest());
 
     let _ = std::fs::remove_dir_all(&ws);
@@ -3166,16 +3168,17 @@ fn test_sealed_contract_single_byte_fuzzing_and_order_invariance() {
     );
 
     // 2. JSON serialization key-order independence
-    let digest_original = contract
-        .unsealed()
+    let unsealed_orig: UnsealedSecurityContract =
+        serde_json::from_value(serde_json::to_value(&contract).expect("serialize value"))
+            .expect("deserialize original unsealed");
+    let digest_original = unsealed_orig
         .compute_sha256_digest()
         .expect("original digest");
     let contract_val = serde_json::to_value(&contract).expect("serialize value");
     let serialized_str = serde_json::to_string(&contract_val).expect("to string");
-    let deserialized_contract: SecurityContract =
-        serde_json::from_str(&serialized_str).expect("deserialize");
-    let digest_roundtrip = deserialized_contract
-        .unsealed()
+    let deserialized_unsealed: UnsealedSecurityContract =
+        serde_json::from_str(&serialized_str).expect("deserialize roundtrip unsealed");
+    let digest_roundtrip = deserialized_unsealed
         .compute_sha256_digest()
         .expect("roundtrip digest");
     assert_eq!(

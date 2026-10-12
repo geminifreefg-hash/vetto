@@ -107,9 +107,9 @@ vetto bench [OPTIONS] -- <COMMAND> [ARGS...]
 ### 5.3. Exit Code Contract
 
 - **`0`**: Evaluation task completed successfully (child returned 0, no sandbox breach, no timeout).
-- **`1 – 124`**: Natural child process exit code (e.g. `pytest` reporting failed tests returns 1).
+- **`1 – 123`**: Natural child process exit code (e.g. `pytest` reporting failed tests returns 1).
+- **`124`**: Task execution timed out at deadline (POSIX timeout exit code expected by SWE-bench harness).
 - **`125`**: Fail-closed security boundary triggered:
-  - Task execution timed out at deadline.
   - Task exceeded memory limit and was killed by cgroups OOM.
   - Landlock or seccomp blocked unauthorized access outside workspace.
   - Process tree failed extinction verification.
