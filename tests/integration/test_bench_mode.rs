@@ -158,7 +158,7 @@ fn test_bench_json_result_interface_contract() {
 #[test]
 fn test_bench_fail_closed_contract_on_violation() {
     let timeout_res = BenchJsonResult {
-        exit_code: 125,
+        exit_code: 124,
         cold_start_ns: 2_100_000,
         cold_start_ms: 2.1,
         duration_ms: 180_000,
@@ -174,7 +174,7 @@ fn test_bench_fail_closed_contract_on_violation() {
         stderr: "deadline expired".to_string(),
     };
 
-    assert_eq!(timeout_res.exit_code, 125);
+    assert_eq!(timeout_res.exit_code, 124);
     assert_eq!(timeout_res.verdict, "fail_closed");
     assert!(timeout_res.timed_out);
 
