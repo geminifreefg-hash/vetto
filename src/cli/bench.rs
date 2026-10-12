@@ -480,9 +480,10 @@ pub fn run_bench(bench_args: &BenchArgs, cli: &Cli) -> Result<BenchJsonResult> {
     let oom_killed = raw_exit_code == 137 || (raw_exit_code == -1 && !timed_out);
     let blocked_attempts = prod_result.blocked_attempts;
 
-    // Contract: Fail-closed Exit 125 on timeout, OOM or sandbox security breach
-    let final_exit_code = if timed_out || oom_killed || raw_exit_code == 125 || blocked_attempts > 0
-    {
+    // Contract: Fail-closed Exit 125 on OOM or sandbox security breach, Exit 124 on timeout (POSIX timeout)
+    let final_exit_code = if timed_out {
+        124
+    } else if oom_killed || raw_exit_code == 125 || blocked_attempts > 0 {
         125
     } else {
         raw_exit_code
@@ -599,7 +600,7 @@ mod tests {
     #[test]
     fn test_bench_timeout_verdict_contract() {
         let res = BenchJsonResult {
-            exit_code: 125,
+            exit_code: 124,
             cold_start_ns: 1_800_000,
             cold_start_ms: 1.8,
             duration_ms: 180_000,
@@ -615,7 +616,7 @@ mod tests {
             stderr: "session killed on deadline".to_string(),
         };
 
-        assert_eq!(res.exit_code, 125);
+        assert_eq!(res.exit_code, 124);
         assert_eq!(res.verdict, "fail_closed");
         assert!(res.timed_out);
     }

@@ -105,7 +105,7 @@ pub struct SecurityContract {
 
 impl SecurityContract {
     /// Extract unsealed payload.
-    pub fn unsealed(&self) -> UnsealedSecurityContract {
+    pub(crate) fn unsealed(&self) -> UnsealedSecurityContract {
         UnsealedSecurityContract {
             production: self.production.clone(),
             contract_version: self.contract_version,
