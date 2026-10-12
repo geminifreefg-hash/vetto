@@ -14,7 +14,16 @@ const MACOS_TCC_GUARDED_FOLDERS: [&str; 3] = ["Documents", "Desktop", "Downloads
 /// (`~/Documents`, `~/Desktop`, `~/Downloads`). A leading `~` is expanded
 /// against `$HOME`. Paths outside `$HOME` are never treated as TCC-guarded.
 pub fn is_macos_tcc_protected_path(path: &Path) -> bool {
-    let home = std::env::var_os("HOME").map(PathBuf::from);
+    is_macos_tcc_protected_path_with_home(path, None)
+}
+
+/// Variant of [`is_macos_tcc_protected_path`] accepting an optional explicit home path.
+/// Useful to prevent multi-threaded test environment variable races on `HOME`.
+pub fn is_macos_tcc_protected_path_with_home(path: &Path, override_home: Option<&Path>) -> bool {
+    let home = override_home
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(PathBuf::from))
+        .or_else(|| std::env::var_os("USERPROFILE").map(PathBuf::from));
     let expanded: PathBuf = match path.components().next() {
         Some(std::path::Component::Normal(first)) if first == "~" => match home.clone() {
             Some(h) => h.join(path.strip_prefix("~").unwrap_or(path)),
@@ -286,21 +295,31 @@ mod tests {
 
     #[test]
     fn macos_tcc_guided_paths_are_detected_without_filesystem_access() {
-        let Some(home) = std::env::var_os("HOME").map(PathBuf::from) else {
-            return;
-        };
+        let dummy_home = Path::new("/Users/dummy_vetto_user");
         for guarded in ["Documents", "Desktop", "Downloads"] {
             assert!(
-                is_macos_tcc_protected_path(&home.join(guarded).join("work")),
-                "{guarded} under $HOME must be TCC-guarded"
+                is_macos_tcc_protected_path_with_home(
+                    &dummy_home.join(guarded).join("work"),
+                    Some(dummy_home)
+                ),
+                "{guarded} under explicit home must be TCC-guarded"
+            );
+            assert!(
+                is_macos_tcc_protected_path_with_home(
+                    Path::new(&format!("~/{guarded}/work")),
+                    Some(dummy_home)
+                ),
+                "{guarded} under ~ must be TCC-guarded"
             );
         }
-        assert!(!is_macos_tcc_protected_path(
-            &home.join("projects").join("work")
+        assert!(!is_macos_tcc_protected_path_with_home(
+            &dummy_home.join("projects").join("work"),
+            Some(dummy_home)
         ));
-        assert!(!is_macos_tcc_protected_path(Path::new(
-            "/definitely/not/a/home/Documents/work"
-        )));
+        assert!(!is_macos_tcc_protected_path_with_home(
+            Path::new("/definitely/not/a/home/Documents/work"),
+            Some(dummy_home)
+        ));
     }
 
     #[test]
