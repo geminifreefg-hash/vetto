@@ -5,6 +5,18 @@ Keep a Changelog; versioning follows SemVer.
 
 ## [Unreleased]
 
+## [0.6.6] - 2026-10-13
+
+### Fixed
+- **Benchmark Deadline POSIX Exit Code (`src/cli/bench.rs`, EVAL-BUG-01)**:
+  - Aligned benchmark execution timeouts with standard POSIX `124` instead of collapsing into `125`, restoring interoperability with SWE-bench harness evaluation without misclassifying task timeouts as fatal sandbox crashes.
+- **Git Guard Shim Bypass Elimination (`src/shim/registry.rs`, SEC-01)**:
+  - Removed `$VETTO_SANDBOXED` and `$VETTO_WRAPPED` bypasses from Unix and Windows shim templates, ensuring all child git invocations inside active sandboxes route through `vetto shim` to enforce repository mutation protection.
+- **Security Contract Mutation Encapsulation (`src/policy_ir/contract.rs`, TOP-01)**:
+  - Restricted `SecurityContract::unsealed()` visibility to `pub(crate)` to prevent external callers from unsealing or mutating sealed contracts outside the compiler boundary.
+- **Cross-Platform Test Reliability (`src/doctor/fix.rs`, `tests/policy_ir_phase2.rs`)**:
+  - Eliminated parallel `$HOME` environment race conditions in macOS TCC doctor checks via explicit fixture paths; adjusted simulated preflight latency threshold to prevent scheduler jitter on Windows CI runners.
+
 ## [0.6.5] - 2026-10-11
 
 ### Added

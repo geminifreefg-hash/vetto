@@ -13,10 +13,10 @@
   <strong>Vetto</strong> is an unprivileged kernel sandbox and security runtime for AI coding agents.
 </p>
 
-[![CI](https://img.shields.io/github/actions/workflow/status/shleder/vetto/ci.yml?branch=main&label=CI&style=flat-square)](https://github.com/shleder/vetto/actions)
-[![Release](https://img.shields.io/github/v/release/shleder/vetto?label=release&color=blue&style=flat-square)](https://github.com/shleder/vetto/releases)
-[![npm version](https://img.shields.io/badge/npm-v0.6.5-CB3837?logo=npm&logoColor=white&style=flat-square)](https://www.npmjs.com/package/@shledery/vetto)
-[![crates.io](https://img.shields.io/badge/crates.io-v0.6.5-orange?logo=rust&logoColor=white&style=flat-square)](https://crates.io/crates/vetto)
+[![CI](https://img.shields.io/github/actions/workflow/status/geminifreefg-hash/vetto/ci.yml?branch=main&label=CI&style=flat-square)](https://github.com/shleder/vetto/actions)
+[![Release](https://img.shields.io/github/v/release/geminifreefg-hash/vetto?label=release&color=blue&style=flat-square)](https://github.com/shleder/vetto/releases)
+[![npm version](https://img.shields.io/badge/npm-v0.6.6-CB3837?logo=npm&logoColor=white&style=flat-square)](https://www.npmjs.com/package/@shledery/vetto)
+[![crates.io](https://img.shields.io/badge/crates.io-v0.6.6-orange?logo=rust&logoColor=white&style=flat-square)](https://crates.io/crates/vetto)
 [![Platforms](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey?style=flat-square)](https://github.com/shleder/vetto)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-green?style=flat-square)](LICENSE)
 
