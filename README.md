@@ -21,7 +21,7 @@
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-green?style=flat-square)](LICENSE)
 
 <p align="center">
-  <img src="assets/readme/demo.gif" alt="Vetto Terminal Demo" width="880">
+  <img src="https://raw.githubusercontent.com/geminifreefg-hash/vetto/main/assets/readme/demo.gif" alt="Vetto Terminal Demo" width="880">
 </p>
 
 </div>
