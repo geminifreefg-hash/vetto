@@ -367,6 +367,46 @@ jobs:
           fi
           python3 -c "import json; m=json.load(open('all-assets/vetto.json')); print('scoop manifest OK:', m['version'], m['architecture']['64bit']['hash'][:12])"
 
+      - name: Render Homebrew formula
+        env:
+          TAG: ${{ needs.version-check.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          template="packaging/homebrew/vetto.rb.template"
+          [[ -f "$template" ]] || { echo "::error ::Homebrew formula template missing: $template"; exit 1; }
+
+          for arch in macos-aarch64 macos-x86_64 linux-aarch64 linux-x86_64; do
+            archive="all-assets/vetto-${arch}.tar.gz"
+            sidecar="${archive}.sha256"
+            [[ -f "$archive" ]] || { echo "::error ::archive missing: $archive"; exit 1; }
+            [[ -f "$sidecar" ]] || { echo "::error ::sha256 sidecar missing: $sidecar"; exit 1; }
+            (cd all-assets && sha256sum -c "vetto-${arch}.tar.gz.sha256")
+          done
+
+          sha_mac_arm="$(awk '{print $1}' all-assets/vetto-macos-aarch64.tar.gz.sha256)"
+          sha_mac_intel="$(awk '{print $1}' all-assets/vetto-macos-x86_64.tar.gz.sha256)"
+          sha_lin_arm="$(awk '{print $1}' all-assets/vetto-linux-aarch64.tar.gz.sha256)"
+          sha_lin_intel="$(awk '{print $1}' all-assets/vetto-linux-x86_64.tar.gz.sha256)"
+
+          for s in "$sha_mac_arm" "$sha_mac_intel" "$sha_lin_arm" "$sha_lin_intel"; do
+            [[ "$s" =~ ^[0-9a-f]{64}$ ]] || { echo "::error ::malformed sha256 sidecar"; exit 1; }
+          done
+
+          sed -e "s/__VERSION__/${version}/g" \
+              -e "s/__MACOS_ARM_SHA256__/${sha_mac_arm}/g" \
+              -e "s/__MACOS_INTEL_SHA256__/${sha_mac_intel}/g" \
+              -e "s/__LINUX_ARM_SHA256__/${sha_lin_arm}/g" \
+              -e "s/__LINUX_INTEL_SHA256__/${sha_lin_intel}/g" \
+              "$template" > all-assets/vetto.rb
+
+          if grep -q "__[A-Z_]*__" all-assets/vetto.rb; then
+            echo "::error ::unrendered placeholders remain in vetto.rb"
+            exit 1
+          fi
+          echo "::notice ::Homebrew formula rendered successfully for $version"
+
       - name: Sign and verify release archives (minisign)
         env:
           TAG: ${{ needs.version-check.outputs.tag }}
@@ -431,6 +471,34 @@ jobs:
           else
             gh release upload "$TAG" all-assets/* --clobber
           fi
+
+      - name: Sync Homebrew Tap
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          TAG: ${{ needs.version-check.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${HOMEBREW_TAP_TOKEN:-}" ]]; then
+            echo "::warning ::HOMEBREW_TAP_TOKEN is not set; skipping automated push to shleder/homebrew-tap. The rendered formula is attached to release assets as vetto.rb."
+            exit 0
+          fi
+
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/shleder/homebrew-tap.git" "$work/tap"
+          cp all-assets/vetto.rb "$work/tap/Formula/vetto.rb"
+          cd "$work/tap"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet Formula/vetto.rb; then
+            echo "::notice ::Homebrew tap formula already up to date."
+            exit 0
+          fi
+          git add Formula/vetto.rb
+          git commit -m "feat: bump vetto formula to ${TAG#v}"
+          git push origin main
+          echo "::notice ::Successfully pushed updated formula to shleder/homebrew-tap."
 
       - name: Publish to NPM registry
         env:
